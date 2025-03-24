@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# This script use ddns-tools "dig" to retrieve public ip
+# (with a redundancy on curl in case is goes missing)
+# and registered ip for a freedns supplied domain
+# then query the freedns endpoint to update dns in case they are not aligned
+
+[ -z "$USERNAME" ] && echo "Missing USERNAME" >&2 && exit 1
+[ -z "$PASSWORD" ] && echo "Missing PASSWORD" >&2 && exit 1
+[ -z "$DOMAIN" ] && echo "Missing DOMAIN to update" >&2 && exit 1
+interval_seconds=3
+update_url="https://${USERNAME}:${PASSWORD}@freedns.afraid.org/dynamic/update.php?_YOURAPIKEYHERE_"
+
+
+while :
+do
+  current="$(dig +short myip.opendns.com @resolver1.opendns.com)"
+  current="${current:=$(curl -s https://ipecho.net/plain)}"
+  echo "current ip=$current"
+
+  registered=$(dig +short $DOMAIN)
+  echo "registered ip=$registered"
+
+  [ "$current" = "$registered" ] || {
+    echo "curl -s $update_url"
+    date "+DNS update on: %F %T"
+  }
+  unset current
+  sleep "$interval_seconds"
+done
+
